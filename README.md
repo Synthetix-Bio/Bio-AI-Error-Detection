@@ -2,6 +2,9 @@
 
 Developed by **Synthetix-Bio**, this repository hosts a hybrid deep learning framework designed for high-accuracy polishing of Oxford Nanopore Technology (ONT) genomic data.
 
+<img width="562" height="455" alt="download (6)" src="https://github.com/user-attachments/assets/a68ba9d8-2277-4ddf-ae89-2b23abe7d768" />
+
+
 ---
 
 ## Executive Summary
