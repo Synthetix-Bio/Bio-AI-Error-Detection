@@ -23,9 +23,18 @@ def train_genome_polisher(
         raise ValueError("x_train must have shape (batch, sequence_length, 4)")
 
     if y_train.shape[:2] != x_train.shape[:2]:
-        raise ValueError("y_train must have shape (batch, sequence_length)")
+        raise ValueError(
+            "y_train shape must match x_train shape in first two dimensions "
+            "(batch, sequence_length)"
+        )
 
-    torch_device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
+    if device is None:
+        torch_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        try:
+            torch_device = torch.device(device)
+        except (TypeError, RuntimeError) as exc:
+            raise ValueError(f"Invalid device specification: {device}") from exc
     model = GenomePolisher().to(torch_device)
 
     dataset = TensorDataset(

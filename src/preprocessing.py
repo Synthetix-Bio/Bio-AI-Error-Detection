@@ -12,7 +12,11 @@ def parse_fastq_sequences(fastq_path: str) -> List[str]:
 
 
 def one_hot_encode_sequence(sequence: str, max_length: int | None = None) -> np.ndarray:
-    """One-hot encode a DNA sequence into shape (length, 4)."""
+    """One-hot encode DNA into shape (length, 4).
+
+    Unknown/ambiguous bases (e.g. N) are encoded as all zeros.
+    If ``max_length`` is provided, the sequence is truncated/padded to that length.
+    """
     seq = sequence.upper()
     target_length = max_length if max_length is not None else len(seq)
     encoded = np.zeros((target_length, 4), dtype=np.float32)
