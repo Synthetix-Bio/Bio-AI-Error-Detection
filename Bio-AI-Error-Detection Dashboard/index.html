@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 GenomePolisher Performance Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #0b0c10;
+            --panel-bg: rgba(31, 33, 40, 0.6);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-main: #e0e6ed;
+            --text-muted: #8b92a5;
+            --primary: #4facfe;
+            --secondary: #00f2fe;
+            --accent: #ff0844;
+            --success: #00b09b;
+            --warning: #f6d365;
+            --error-mismatch: #ff6b6b;
+            --error-insertion: #4a90e2;
+            --error-deletion: #f39c12;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(79, 172, 254, 0.08), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(255, 8, 68, 0.05), transparent 25%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Utilities */
+        .glass {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-right: 1px solid var(--panel-border);
+            background: rgba(11, 12, 16, 0.8);
+            backdrop-filter: blur(20px);
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: auto;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--panel-border);
+            color: var(--text-main);
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-2px);
+        }
+
+        .btn-export { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #000; border: none; }
+        .btn-export:hover { box-shadow: 0 0 15px rgba(79, 172, 254, 0.5); }
+
+        /* Toggle Switch */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid var(--panel-border);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333; transition: .4s; border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px;
+            background-color: white; transition: .4s; border-radius: 50%;
+        }
+        input:checked + .slider { background-color: var(--success); box-shadow: 0 0 10px var(--success); }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            max-width: 1600px;
+        }
+
+        header { margin-bottom: 40px; }
+        header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        header p { color: var(--text-muted); font-size: 1.1rem; }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+        .metric-card:hover { transform: translateY(-5px); }
+
+        .metric-icon {
+            position: absolute; top: 20px; right: 20px;
+            font-size: 2rem; opacity: 0.2;
+        }
+
+        .metric-value { font-size: 2.5rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+        .metric-label { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        .chart-card {
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            min-height: 400px;
+        }
+        
+        .chart-card.full-width { grid-column: 1 / -1; }
+
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .chart-title { font-size: 1.2rem; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        
+        .chart-container { position: relative; flex: 1; min-height: 300px; width: 100%; }
+
+        /* Sequence Viewer */
+        .sequence-viewer {
+            font-family: 'JetBrains Mono', monospace;
+            background: #000;
+            padding: 20px;
+            border-radius: 10px;
+            overflow-x: auto;
+            white-space: pre;
+            line-height: 1.8;
+            font-size: 1.1rem;
+            letter-spacing: 2px;
+            border: 1px solid rgba(255,255,255,0.1);
+            position: relative;
+        }
+        .seq-row { display: flex; margin-bottom: 5px; }
+        .seq-label { color: var(--text-muted); width: 80px; user-select: none; }
+        
+        .base { display: inline-block; width: 20px; text-align: center; border-radius: 3px; transition: all 0.2s; }
+        .base:hover { transform: scale(1.2); cursor: crosshair; }
+        
+        .base.match { color: #8b92a5; }
+        .base.mismatch { color: var(--error-mismatch); font-weight: bold; text-shadow: 0 0 8px rgba(255,107,107,0.6); }
+        .base.insertion { color: var(--error-insertion); font-weight: bold; text-decoration: underline; }
+        .base.deletion { color: var(--error-deletion); font-weight: bold; }
+        .base.gap { color: #555; }
+
+        .seq-legend { display: flex; gap: 15px; margin-top: 15px; font-size: 0.85rem; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .legend-color { width: 12px; height: 12px; border-radius: 3px; }
+
+        @media (max-width: 1200px) {
+            .charts-grid { grid-template-columns: 1fr; }
+            .chart-card.full-width { grid-column: 1; }
+        }
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; position: static; border-right: none; border-bottom: 1px solid var(--panel-border); }
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="brand">
+            <i class="fas fa-dna"></i> PolisherOS
+        </div>
+        
+        <div style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+            <p><i class="fas fa-server"></i> Node: US-East-GPU1</p>
+            <p><i class="fas fa-clock"></i> Uptime: <span id="uptime">02:14:55</span></p>
+        </div>
+
+        <div class="controls">
+            <div class="toggle-container">
+                <div>
+                    <strong><i class="fas fa-broadcast-tower"></i> Live Data</strong>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">Simulate incoming batches</div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="liveToggle" onchange="toggleLiveMode()">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            
+            <button class="btn btn-export" onclick="exportData()">
+                <i class="fas fa-download"></i> Export Report (JSON)
+            </button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header>
+            <h1>Model Performance Dashboard</h1>
+            <p>CNN-Transformer Hybrid | Sequence Length: 100bp | Classes: A, C, G, T, Gap</p>
+        </header>
+
+        <!-- Top Metrics -->
+        <div class="metrics-grid" id="metricsContainer">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- Main Charts Area -->
+        <div class="charts-grid">
+            
+            <!-- Sequence Viewer -->
+            <div class="chart-card glass full-width">
+                <div class="chart-header">
+                    <div class="chart-title"><i class="fas fa-align-left"></i> Real-time Sequence Polishing</div>
+                    <button class="btn" style="padding: 5px 10px; font-size: 0.8rem;" onclick="generateSequence()"><i class="fas fa-random"></i> Next Batch</button>
+                </div>
+                <div class="sequence-viewer" id="sequenceViewer">
+                    <!-- Sequence injected here -->
+                </div>
+                <div class="seq-legend">
+                    <div class="legend-item"><div class="legend-color" style="background: #8b92a5;"></div> Match</div>
+                    <div class="legend-item"><div class="legend-color" style="background: var(--error-mismatch);"></div> Mismatch</div>
+                    <div class="legend-item"><div class="legend-color" style="background: var(--error-insertion);"></div> Insertion</div>
+                    <div class="legend-item"><div class="legend-color" style="background: var(--error-deletion);"></div> Deletion</div>
+                </div>
+            </div>
+
+            <!-- Training Curves -->
+            <div class="chart-card glass">
+                <div class="chart-header">
+                    <div class="chart-title"><i class="fas fa-chart-line"></i> Training Progress</div>
+                    <div>
+                        <button class="btn" style="padding: 5px 10px; font-size: 0.8rem; display: inline-block;" onclick="setMetricView('loss')" id="btnLoss">Loss</button>
+                        <button class="btn" style="padding: 5px 10px; font-size: 0.8rem; display: inline-block; background: rgba(255,255,255,0.1);" onclick="setMetricView('acc')" id="btnAcc">Accuracy</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="trainChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Radar Chart (Class Accuracy) -->
+            <div class="chart-card glass">
+                <div class="chart-header">
+                    <div class="chart-title"><i class="fas fa-spider"></i> Class-wise Performance</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Error Profile -->
+            <div class="chart-card glass">
+                <div class="chart-header">
+                    <div class="chart-title"><i class="fas fa-chart-pie"></i> Error Distribution</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="errorPie"></canvas>
+                </div>
+            </div>
+
+            <!-- Method Comparison -->
+            <div class="chart-card glass">
+                <div class="chart-header">
+                    <div class="chart-title"><i class="fas fa-chart-bar"></i> Error Rate vs Baselines</div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="compareChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // --- Core Data Model ---
+        let modelData = {
+            epochs: [1,2,3,4,5,6,7,8,9,10],
+            trainLoss: [0.8, 0.6, 0.4, 0.3, 0.2, 0.15, 0.1, 0.08, 0.06, 0.05],
+            valLoss: [0.9, 0.7, 0.5, 0.4, 0.35, 0.3, 0.28, 0.29, 0.31, 0.32],
+            trainAcc: [0.5, 0.7, 0.8, 0.85, 0.9, 0.92, 0.95, 0.96, 0.97, 0.98],
+            valAcc: [0.45, 0.65, 0.75, 0.8, 0.82, 0.81, 0.80, 0.79, 0.78, 0.77],
+            errors: { Mismatch: 75, Insertion: 15, Deletion: 10 },
+            methods: { 'Raw Reads': 12.5, 'Racon': 4.2, 'Medaka': 1.5, 'GenomePolisher': 0.8 },
+            classPerformance: {
+                labels: ['A', 'C', 'G', 'T', 'Gap'],
+                precision: [0.98, 0.96, 0.95, 0.97, 0.90],
+                recall: [0.97, 0.98, 0.94, 0.96, 0.85]
+            },
+            currentMetrics: {
+                precision: "96.5%",
+                recall: "95.0%",
+                f1: "0.957",
+                inferenceTime: "12 ms/seq"
+            }
+        };
+
+        // --- Chart Instances ---
+        let charts = {};
+        let currentView = 'loss';
+        let liveInterval = null;
+
+        // --- Global Chart Defaults ---
+        Chart.defaults.color = '#8b92a5';
+        Chart.defaults.font.family = "'Inter', sans-serif";
+        const gridOptions = { color: 'rgba(255,255,255,0.05)' };
+
+        function initDashboard() {
+            renderMetrics();
+            initCharts();
+            generateSequence();
+            startUptime();
+        }
+
+        function renderMetrics() {
+            const finalValLoss = modelData.valLoss[modelData.valLoss.length - 1];
+            const finalValAcc = modelData.valAcc[modelData.valAcc.length - 1];
+            
+            const metrics = [
+                { label: 'Validation Loss', value: finalValLoss.toFixed(3), icon: 'fa-wave-square', color: '#ff6b6b' },
+                { label: 'Validation Acc', value: (finalValAcc * 100).toFixed(1) + '%', icon: 'fa-bullseye', color: '#00b09b' },
+                { label: 'Precision', value: modelData.currentMetrics.precision, icon: 'fa-crosshairs', color: '#4facfe' },
+                { label: 'Recall', value: modelData.currentMetrics.recall, icon: 'fa-reply-all', color: '#00f2fe' },
+                { label: 'F1-Score', value: modelData.currentMetrics.f1, icon: 'fa-balance-scale', color: '#f6d365' },
+                { label: 'Inference Speed', value: modelData.currentMetrics.inferenceTime, icon: 'fa-bolt', color: '#ff0844' }
+            ];
+
+            const container = document.getElementById('metricsContainer');
+            container.innerHTML = metrics.map(m => `
+                <div class="metric-card glass" style="border-top: 3px solid ${m.color}">
+                    <i class="fas ${m.icon} metric-icon" style="color: ${m.color}"></i>
+                    <div class="metric-label">${m.label}</div>
+                    <div class="metric-value" style="color: ${m.color}">${m.value}</div>
+                </div>
+            `).join('');
+        }
+
+        function initCharts() {
+            // Training Curves
+            const ctxTrain = document.getElementById('trainChart').getContext('2d');
+            charts.train = new Chart(ctxTrain, {
+                type: 'line',
+                data: getTrainData('loss'),
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: { x: { grid: gridOptions }, y: { grid: gridOptions } },
+                    interaction: { mode: 'index', intersect: false }
+                }
+            });
+
+            // Radar Chart
+            const ctxRadar = document.getElementById('radarChart').getContext('2d');
+            charts.radar = new Chart(ctxRadar, {
+                type: 'radar',
+                data: {
+                    labels: modelData.classPerformance.labels,
+                    datasets: [
+                        {
+                            label: 'Precision',
+                            data: modelData.classPerformance.precision,
+                            backgroundColor: 'rgba(79, 172, 254, 0.2)',
+                            borderColor: '#4facfe',
+                            pointBackgroundColor: '#4facfe'
+                        },
+                        {
+                            label: 'Recall',
+                            data: modelData.classPerformance.recall,
+                            backgroundColor: 'rgba(255, 8, 68, 0.2)',
+                            borderColor: '#ff0844',
+                            pointBackgroundColor: '#ff0844'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255,255,255,0.1)' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            pointLabels: { color: '#e0e6ed', font: { size: 14 } },
+                            ticks: { display: false, min: 0.8, max: 1.0 }
+                        }
+                    }
+                }
+            });
+
+            // Error Pie Chart
+            const ctxPie = document.getElementById('errorPie').getContext('2d');
+            charts.pie = new Chart(ctxPie, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(modelData.errors),
+                    datasets: [{
+                        data: Object.values(modelData.errors),
+                        backgroundColor: ['#ff6b6b', '#4facfe', '#f39c12'],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Method Comparison
+            const ctxCompare = document.getElementById('compareChart').getContext('2d');
+            charts.compare = new Chart(ctxCompare, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(modelData.methods),
+                    datasets: [{
+                        label: 'Error Rate (%)',
+                        data: Object.values(modelData.methods),
+                        backgroundColor: (ctx) => {
+                            const index = ctx.dataIndex;
+                            // Highlight the final method
+                            return index === 3 ? '#00b09b' : 'rgba(79, 172, 254, 0.5)';
+                        },
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { x: { grid: { display: false } }, y: { grid: gridOptions } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function getTrainData(type) {
+            if(type === 'loss') {
+                return {
+                    labels: modelData.epochs,
+                    datasets: [
+                        { label: 'Train Loss', data: modelData.trainLoss, borderColor: '#4facfe', tension: 0.4, borderWidth: 3 },
+                        { label: 'Val Loss', data: modelData.valLoss, borderColor: '#ff0844', tension: 0.4, borderDash: [5, 5] }
+                    ]
+                };
+            } else {
+                return {
+                    labels: modelData.epochs,
+                    datasets: [
+                        { label: 'Train Acc', data: modelData.trainAcc, borderColor: '#00b09b', tension: 0.4, borderWidth: 3 },
+                        { label: 'Val Acc', data: modelData.valAcc, borderColor: '#f6d365', tension: 0.4, borderDash: [5, 5] }
+                    ]
+                };
+            }
+        }
+
+        function setMetricView(type) {
+            currentView = type;
+            document.getElementById('btnLoss').style.background = type === 'loss' ? 'rgba(255,255,255,0.1)' : 'transparent';
+            document.getElementById('btnAcc').style.background = type === 'acc' ? 'rgba(255,255,255,0.1)' : 'transparent';
+            
+            charts.train.data = getTrainData(type);
+            charts.train.update();
+        }
+
+        // --- Sequence Generator Simulator ---
+        function generateSequence() {
+            const bases = ['A', 'C', 'G', 'T'];
+            let ref = '', pred = '', htmlRef = '<div class="seq-row"><div class="seq-label">Ref:</div><div>', htmlPred = '<div class="seq-row"><div class="seq-label">Pred:</div><div>';
+            
+            for(let i=0; i<60; i++) {
+                const base = bases[Math.floor(Math.random() * bases.length)];
+                ref += base;
+                
+                let pBase = base;
+                let cssClass = 'match';
+                
+                // Simulate errors (~5% error rate)
+                const rand = Math.random();
+                if(rand < 0.02) { // Mismatch
+                    pBase = bases.filter(b => b !== base)[Math.floor(Math.random() * 3)];
+                    cssClass = 'mismatch';
+                } else if(rand < 0.035) { // Insertion
+                    pBase = '+';
+                    cssClass = 'insertion';
+                } else if(rand < 0.05) { // Deletion
+                    pBase = '-';
+                    cssClass = 'deletion';
+                }
+
+                htmlRef += `<span class="base">${base}</span>`;
+                htmlPred += `<span class="base ${cssClass}">${pBase}</span>`;
+            }
+            
+            htmlRef += '</div></div>';
+            htmlPred += '</div></div>';
+            
+            document.getElementById('sequenceViewer').innerHTML = htmlRef + htmlPred;
+        }
+
+        // --- Live Data Simulation ---
+        function toggleLiveMode() {
+            const isLive = document.getElementById('liveToggle').checked;
+            
+            if(isLive) {
+                let epoch = modelData.epochs.length;
+                liveInterval = setInterval(() => {
+                    epoch++;
+                    modelData.epochs.push(epoch);
+                    
+                    // Simulate asymptotic improvement/noise
+                    const lastTrainLoss = modelData.trainLoss[modelData.trainLoss.length-1];
+                    const lastValLoss = modelData.valLoss[modelData.valLoss.length-1];
+                    
+                    modelData.trainLoss.push(Math.max(0.01, lastTrainLoss * 0.95 + (Math.random()*0.02 - 0.01)));
+                    modelData.valLoss.push(Math.max(0.1, lastValLoss + (Math.random()*0.04 - 0.015))); // Val might overfit slightly
+                    
+                    modelData.trainAcc.push(Math.min(1.0, modelData.trainAcc[modelData.trainAcc.length-1] + 0.005));
+                    modelData.valAcc.push(Math.min(1.0, modelData.valAcc[modelData.valAcc.length-1] + (Math.random()*0.02 - 0.01)));
+
+                    // Keep window size to 20
+                    if(modelData.epochs.length > 20) {
+                        modelData.epochs.shift();
+                        modelData.trainLoss.shift();
+                        modelData.valLoss.shift();
+                        modelData.trainAcc.shift();
+                        modelData.valAcc.shift();
+                    }
+
+                    charts.train.data = getTrainData(currentView);
+                    charts.train.update();
+                    
+                    // Slightly twiddle error pie
+                    modelData.errors.Mismatch += Math.floor(Math.random() * 3);
+                    charts.pie.data.datasets[0].data = Object.values(modelData.errors);
+                    charts.pie.update();
+
+                    // Generate new sequence occasionally
+                    if(epoch % 2 === 0) generateSequence();
+                    
+                    renderMetrics();
+                }, 2000);
+            } else {
+                clearInterval(liveInterval);
+            }
+        }
+
+        // --- Export Data ---
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(modelData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "genome_polisher_report.json");
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        // --- Uptime Counter ---
+        function startUptime() {
+            let seconds = 8095; // start at 02:14:55
+            setInterval(() => {
+                seconds++;
+                const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+                const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+                const s = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('uptime').innerText = `${h}:${m}:${s}`;
+            }, 1000);
+        }
+
+        // Initialize on load
+        window.onload = initDashboard;
+    </script>
+</body>
+</html>
