@@ -68,7 +68,7 @@ def train_genome_polisher(
 
 if __name__ == "__main__":
     samples, seq_len = 8, 100
-    x = np.eye(4, dtype=np.float32)[np.random.randint(0, 4, (samples, seq_len))]
-    y = np.random.randint(0, 4, (samples, seq_len), dtype=np.int64)
-    train_genome_polisher(x, y, epochs=1)
+    x_dummy = np.eye(4, dtype=np.float32)[np.random.randint(0, 4, (samples, seq_len))]
+    y_dummy = np.random.randint(0, 4, (samples, seq_len), dtype=np.int64)
+    train_genome_polisher(x_dummy, y_dummy, epochs=1)
     print("Training finished.")
