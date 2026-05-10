@@ -1,4 +1,4 @@
-torch
-biopython
-numpy
-matplotlib
+torch>=2.0,<3.0
+biopython>=1.80,<2.0
+numpy>=1.24,<3.0
+matplotlib>=3.7,<4.0

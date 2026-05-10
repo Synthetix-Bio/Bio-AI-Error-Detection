@@ -38,7 +38,8 @@ def train_genome_polisher(
     optimizer = AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     model.train()
-    for _ in range(epochs):
+    for epoch in range(epochs):
+        running_loss = 0.0
         for batch_x, batch_y in dataloader:
             batch_x = batch_x.to(torch_device)
             batch_y = batch_y.to(torch_device)
@@ -49,6 +50,9 @@ def train_genome_polisher(
             loss.backward()
             clip_grad_norm_(model.parameters(), max_grad_norm)
             optimizer.step()
+            running_loss += loss.item()
+
+        print(f"Epoch {epoch + 1}/{epochs} - loss: {running_loss / len(dataloader):.4f}")
 
     return model
 
