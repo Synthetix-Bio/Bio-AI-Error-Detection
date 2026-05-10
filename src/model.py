@@ -15,6 +15,8 @@ class GenomePolisher(nn.Module):
         num_classes: int = 4,
     ) -> None:
         super().__init__()
+        if kernel_size % 2 == 0:
+            raise ValueError("kernel_size must be odd to preserve sequence length with symmetric padding")
         padding = kernel_size // 2
         self.cnn = nn.Sequential(
             nn.Conv1d(input_channels, cnn_channels, kernel_size=kernel_size, padding=padding),

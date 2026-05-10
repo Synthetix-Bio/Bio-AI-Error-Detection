@@ -55,7 +55,8 @@ def train_genome_polisher(
 
             optimizer.zero_grad()
             logits = model(batch_x)
-            loss = criterion(logits.reshape(-1, logits.size(-1)), batch_y.reshape(-1))
+            num_classes = logits.size(-1)
+            loss = criterion(logits.reshape(-1, num_classes), batch_y.reshape(-1))
             loss.backward()
             clip_grad_norm_(model.parameters(), max_grad_norm)
             optimizer.step()
@@ -68,7 +69,7 @@ def train_genome_polisher(
 
 if __name__ == "__main__":
     samples, seq_len = 8, 100
-    x_dummy = np.eye(4, dtype=np.float32)[np.random.randint(0, 4, (samples, seq_len))]
-    y_dummy = np.random.randint(0, 4, (samples, seq_len), dtype=np.int64)
-    train_genome_polisher(x_dummy, y_dummy, epochs=1)
+    dummy_input_data = np.eye(4, dtype=np.float32)[np.random.randint(0, 4, (samples, seq_len))]
+    dummy_target_labels = np.random.randint(0, 4, (samples, seq_len), dtype=np.int64)
+    train_genome_polisher(dummy_input_data, dummy_target_labels, epochs=1)
     print("Training finished.")

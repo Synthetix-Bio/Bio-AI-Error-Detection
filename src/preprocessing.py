@@ -30,10 +30,15 @@ def one_hot_encode_sequence(sequence: str, max_length: int | None = None) -> np.
 
 
 def encode_fastq(fastq_path: str, max_length: int | None = None) -> np.ndarray:
-    """Parse FASTQ and return one-hot encoded reads with optional padding/truncation."""
+    """Parse FASTQ and return one-hot encoded reads with optional padding/truncation.
+
+    For empty files, returns shape ``(0, max_length, 4)`` if ``max_length`` is provided,
+    otherwise ``(0, 0, 4)``.
+    """
     sequences = parse_fastq_sequences(fastq_path)
     if not sequences:
-        return np.empty((0, 0, 4), dtype=np.float32)
+        empty_length = max_length if max_length is not None else 0
+        return np.empty((0, empty_length, 4), dtype=np.float32)
 
     if max_length is None:
         max_length = max(len(seq) for seq in sequences)
